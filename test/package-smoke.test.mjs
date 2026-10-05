@@ -7,6 +7,8 @@ const patch = await readFile(new URL('../cordis.patch.yml', import.meta.url), 'u
 
 test('package entrypoint is built JavaScript and matches the Cordis patch row', async () => {
   assert.equal(packageJson.main, './lib/index.js')
+  assert.equal(packageJson.scripts.prepare, undefined, 'Git installs must not run an unapproved prepare build')
+  assert.equal(packageJson.files.includes('lib'), true, 'repository plugin installs need committed runtime files')
   assert.equal(packageJson.exports['.'], './lib/index.js')
   assert.ok(packageJson.files.includes('lib'))
 

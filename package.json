@@ -56,7 +56,6 @@
     "test:package": "npm run build && node --test test/package-smoke.test.mjs",
     "lint": "eslint src test",
     "build": "node scripts/build.mjs",
-    "prepare": "npm run build",
     "prepublishOnly": "npm run typecheck && npm run test && npm run lint && npm run test:package"
   },
   "dependencies": {
