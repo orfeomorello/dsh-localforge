@@ -61,7 +61,7 @@ llm-localforge:
     enabled: true
     prefix: dsh_localforge
   healthCheck:
-    enabled: true
+    enabled: false
     intervalMs: 15000
 ```
 
@@ -133,7 +133,7 @@ exactly what LM Studio reports (typically `owner/name`, e.g.
 
 | Field | Type | Default | Notes |
 |-------|------|---------|-------|
-| `enabled` | bool | `true` | Run the periodic health probe. |
+| `enabled` | bool | `false` | Run the periodic health probe. Enable it when availability monitoring is useful. |
 | `intervalMs` | int | 15000 | Probe interval. Min 1000. |
 
 ## Provider routes

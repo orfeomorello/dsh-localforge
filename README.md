@@ -37,8 +37,8 @@ things missing from every other adapter:
   window before paying for a round-trip.
 - **Prometheus metrics** — `/metrics` with TTFT, TPS, queue depth, error
   rates, and cache hits.
-- **Health check** — periodic probe with auto-reconnect; the `/metrics`
-  `up` gauge surfaces the state.
+- **Optional health check** — periodic probe with auto-reconnect when enabled;
+  the `/metrics` `up` gauge surfaces the state.
 - **Anthropic-compatible adapter** — second provider route using
   `/v1/messages`, useful for Claude-style system prompts and tool calls.
 - **Structured logging with credential redaction** — every log line is

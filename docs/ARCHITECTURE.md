@@ -241,8 +241,9 @@ predictable.
 
 ### Health check
 
-A `HealthCheck` instance probes `GET {baseURL}/models` every 15s
-(default). A successful probe flips an internal `healthy` flag; a
+A `HealthCheck` instance, when enabled, probes `GET {baseURL}/models` every
+15s (default). It is disabled by default to avoid background polling of local
+servers. A successful probe flips an internal `healthy` flag; a
 transition fires the `onChange` callback (logged at `info`).
 
 ### Logging
