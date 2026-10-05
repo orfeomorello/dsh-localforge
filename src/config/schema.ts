@@ -10,8 +10,19 @@
 import z from '@deepseek-ai/schemastery'
 import { RetryPolicySchema } from '@deepseek-ai/dsh-llm'
 
-const PRESET = z.enum(['code', 'chat', 'creative', 'precise'])
-const ENCODING = z.enum(['o200k_base', 'cl100k_base', 'p50k_base', 'p50k_edit', 'r50k_base'])
+const PRESET = z.union([
+  z.const('code'),
+  z.const('chat'),
+  z.const('creative'),
+  z.const('precise'),
+])
+const ENCODING = z.union([
+  z.const('o200k_base'),
+  z.const('cl100k_base'),
+  z.const('p50k_base'),
+  z.const('p50k_edit'),
+  z.const('r50k_base'),
+])
 
 const Connection = z.object({
   baseURL: z.string().default('http://localhost:1234/v1'),

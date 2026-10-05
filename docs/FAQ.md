@@ -139,6 +139,20 @@ your profile's `--port`).
 
 ## Troubleshooting
 
+### The Plugins page reports `failed to import` when enabling LocalForge
+
+The repository plugin manager imports the package entrypoint directly and
+does not build TypeScript source. The repository therefore needs to include
+its compiled `lib/` runtime; it now does. The bundle path additionally runs a
+build during installation, and its package archive includes `lib/`.
+
+For a bundle install, run `dsh plugin --profile web add
+github:orfeomorello/dsh-localforge#main`, then check the exact loader error
+with `dsh web --dump-config` and a restart. If the repository plugin panel
+still fails, copy the full error from the browser developer console (F12 →
+Console); `failed to import` alone does not distinguish a missing entrypoint
+from a missing dependency or an incompatible DSH version.
+
 ### My model shows up in the picker but the chat fails with 404
 
 The model id in your settings doesn't match what LM Studio reports.

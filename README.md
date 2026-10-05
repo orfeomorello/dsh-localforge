@@ -50,35 +50,35 @@ things missing from every other adapter:
 
 ### Prerequisites
 
-- A working checkout of [DeepSeek Harness](https://github.com/deepseek-ai)
-  (`dsh`), with `pnpm install` completed at its root.
+- DeepSeek Harness (`dsh`) with the **web** profile enabled.
 - A local LLM server. LM Studio 0.4.8+ with **Developer → Start Server**
   on (default port `1234`) is the most-tested target; any OpenAI- or
   Anthropic-compatible server works.
-- Node.js ≥ 22.19.
+- Node.js ≥ 22.19 and pnpm ≥ 9.
 
-### Steps
+### From the DSH Plugins page
+
+1. Open **Settings → Plugins → Repository source → Add**.
+2. Enter `github:orfeomorello/dsh-localforge#main` and install it.
+3. Enable **LocalForge** in the plugin list; if prompted, restart `dsh web`.
+
+The repository installer mounts community plugins immediately. This
+repository also includes the compiled `lib/` runtime because the repository
+plugin manager imports that entrypoint directly; GitHub's installer does not
+build TypeScript source for it. For a bundle-style installation from a
+terminal instead, use:
 
 ```sh
-# 1. clone the plugin into the dsh checkout's plugins/ directory
-cd <dsh-checkout>
-git clone https://github.com/orfeomorello/dsh-localforge plugins/dsh-localforge
-cd plugins/dsh-localforge
-
-# 2. install (the @deepseek-ai/* deps are `link:` to the parent checkout;
-#    --ignore-workspace keeps pnpm from treating this as a workspace root)
-pnpm install --ignore-workspace
-
-# 3. link the plugin into the web profile
-cd ../..
-pnpm dsh plugin --profile web add link:./plugins/dsh-localforge
-
-# 4. start the web UI; refresh http://127.0.0.1:3080
-pnpm dsh web
+dsh plugin --profile web add github:orfeomorello/dsh-localforge#main
+dsh web --dump-config # verify the dsh-localforge bundle layer
+# Restart dsh web after installing the bundle
 ```
 
 In the model picker at the top of the page you'll now see
-**LocalForge** as a provider; pick any model LM Studio has loaded.
+**LocalForge** as a provider; pick any model LM Studio has loaded. If the
+UI still reports `failed to import`, capture the complete browser console
+error or the `dsh web` terminal diagnostic: the short UI message does not
+expose the underlying module-resolution error.
 
 ## Quick start
 
