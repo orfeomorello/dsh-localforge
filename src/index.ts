@@ -147,13 +147,13 @@ export function apply(ctx: Context, rawConfig: ApplyConfig): void {
       provider: 'localforge',
       displayName: 'LocalForge',
       settingsNs: 'llm-localforge',
-      declared: false,
+      settingsPath: [],
     },
     {
       provider: 'localforge-anthropic',
       displayName: 'LocalForge (Anthropic)',
       settingsNs: 'llm-localforge',
-      declared: false,
+      settingsPath: [],
     },
   ])
   ctx.llm.registerAdapter(['localforge'], ccAdapter)
