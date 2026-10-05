@@ -65,11 +65,11 @@
     "pino": "^9.5.0"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "4.0.2",
-    "@deepseek-ai/dsh-attachment": "0.1.5-rc.3",
-    "@deepseek-ai/dsh-llm": "0.1.5-rc.3",
-    "@deepseek-ai/dsh-timeout": "0.1.5-rc.3",
-    "@deepseek-ai/schemastery": "3.18.2"
+    "@deepseek-ai/cordis": ">=4.0.2 <5.0.0",
+    "@deepseek-ai/dsh-attachment": ">=0.1.5-rc.3 <1.0.0",
+    "@deepseek-ai/dsh-llm": ">=0.1.5-rc.3 <1.0.0",
+    "@deepseek-ai/dsh-timeout": ">=0.1.5-rc.3 <1.0.0",
+    "@deepseek-ai/schemastery": ">=3.18.2 <4.0.0"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": { "optional": true },
