@@ -1,0 +1,11 @@
+# Bundle layer for the dsh-localforge plugin.
+#
+# A single dormant row, like the upstream llm-pi-ai row it complements: the
+# plugin registers the `localforge` provider route and the `llm-localforge`
+# settings section, and activates the route when a settings section supplies
+# a base URL and override catalog. Defaults target http://localhost:1234/v1
+# (LM Studio's default OpenAI-compatible port). The web Models page writes
+# that section.
+- insert:
+    - id: llm-localforge
+      name: dsh-localforge
