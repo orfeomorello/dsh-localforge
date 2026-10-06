@@ -9,6 +9,7 @@
 [![Node ≥ 22.19](https://img.shields.io/badge/node-%E2%89%A522.19-blue)](https://nodejs.org)
 [![Topic: dsh-plugin](https://img.shields.io/github/topics/dsh-plugin)](https://github.com/topics/dsh-plugin)
 [![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088ff)](./.github/workflows/ci.yml)
+[![HOL Guard Scanner](https://img.shields.io/badge/HOL%20Guard-passing-00a67e)](https://github.com/hashgraph-online/hol-guard)
 
 ---
 

@@ -1,0 +1,17 @@
+version: 2
+
+updates:
+  # Runtime and dev dependencies.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # Keeps the commit-SHA pins in .github/workflows/ current. The HOL scanner
+  # flags unpinned actions, so refreshing the pins has to stay easy.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

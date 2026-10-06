@@ -1,0 +1,29 @@
+# HOL Guard scanner — the same gate the Awesome AI Plugins catalog runs
+# centrally before a listing can merge (`min_score: 80`, no high/critical
+# findings). Keeping it here as maintainer-owned CI means regressions surface
+# in this repository instead of during a listing review, and it earns the full
+# Registry trust score rather than the 10% reduction applied when scanner CI is
+# absent.
+#
+# Workflow properties are intentionally constrained, per SCANNER_GUIDE.md:
+# `contents: read` is the only permission, no secrets are used, checkout
+# credentials are not persisted, and both actions are pinned to commit SHAs.
+name: Plugin Security Scan
+
+on: [pull_request, push]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: hashgraph-online/ai-plugin-scanner-action@caba2e96aa8ad2feb6cf6fca52442b52e22e779f # v1.2.635
+        with:
+          plugin_dir: "."
+          min_score: 80
+          fail_on_severity: high
