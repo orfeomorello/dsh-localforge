@@ -83,7 +83,7 @@
     "@deepseek-ai/dsh-attachment": "0.1.5-rc.3",
     "@deepseek-ai/dsh-llm": "0.1.5-rc.3",
     "@deepseek-ai/dsh-timeout": "0.1.5-rc.3",
-    "@deepseek-ai/schemastery": "3.18.2",
+    "@deepseek-ai/schemastery": "3.18.4",
     "@types/node": "^22.10.0",
     "@typescript-eslint/eslint-plugin": "^8.15.0",
     "@typescript-eslint/parser": "^8.15.0",
