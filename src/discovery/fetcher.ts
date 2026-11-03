@@ -29,7 +29,24 @@ export async function fetchListing(
     if (fused.aborted) throw err
     // native is best-effort; the compat listing is the documented address
   }
-  return probeCompat(baseURL, apiKey, fused)
+  try {
+    return await probeCompat(baseURL, apiKey, fused)
+  } catch (err) {
+    if (fused.aborted) throw err
+    throw formatConnectionError(baseURL, err)
+  }
+}
+
+export function formatConnectionError(baseURL: string, err: unknown): Error {
+  const msg = err instanceof Error ? err.message : String(err)
+  const cause = err instanceof Error && err.cause instanceof Error
+    ? ` (${(err.cause as { code?: string }).code ?? err.cause.message})`
+    : ''
+  return new Error(
+    `Cannot reach LM Studio server at ${baseURL}: ${msg}${cause}. `
+    + 'Make sure the Local Server is running in LM Studio (Developer tab -> Status: Running, or run "lms server start").',
+    { cause: err },
+  )
 }
 
 async function probeNative(

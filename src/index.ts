@@ -110,16 +110,22 @@ export function apply(ctx: Context, rawConfig: ApplyConfig): void {
     )
   }
 
-  // 4. discovery cache (one cache per baseURL)
-  const openaiBaseURL = initial.defaultConnection.baseURL
-  const anthropicBaseURL = initial.anthropicConnection.baseURL
+  // 4. discovery cache (one cache per protocol, resolving current config per probe)
   const openaiCache = new ListingCache(
-    () => fetchListing(openaiBaseURL, 'lm-studio', initial.defaultConnection.discoveryTimeoutMs),
-    () => initial.defaultConnection.listingCacheMs,
+    async () => {
+      const conn = resolveConnFor('openai')
+      const key = await resolveApiKey(conn).catch(() => 'lm-studio')
+      return fetchListing(conn.baseURL, key, conn.discoveryTimeoutMs)
+    },
+    () => resolveConnFor('openai').listingCacheMs,
   )
   const anthropicCache = new ListingCache(
-    () => fetchListing(anthropicBaseURL, 'lm-studio', initial.anthropicConnection.discoveryTimeoutMs),
-    () => initial.anthropicConnection.listingCacheMs,
+    async () => {
+      const conn = resolveConnFor('anthropic')
+      const key = await resolveApiKey(conn).catch(() => 'lm-studio')
+      return fetchListing(conn.baseURL, key, conn.discoveryTimeoutMs)
+    },
+    () => resolveConnFor('anthropic').listingCacheMs,
   )
 
   // 5. model overrides (shared between adapters)
@@ -142,60 +148,107 @@ export function apply(ctx: Context, rawConfig: ApplyConfig): void {
   })
 
   // 7. registrations on the llm registry
-  ctx.llm.registerConfigurableProviders([
+  let currentError: string | undefined
+  const buildDirEntries = (error?: string) => [
     {
       provider: 'localforge',
       displayName: 'LocalForge',
       settingsNs: 'llm-localforge',
-      settingsPath: [],
+      settingsPath: [] as const,
+      ...error === undefined ? {} : { error },
     },
     {
       provider: 'localforge-anthropic',
       displayName: 'LocalForge (Anthropic)',
       settingsNs: 'llm-localforge',
-      settingsPath: [],
+      settingsPath: [] as const,
+      ...error === undefined ? {} : { error },
     },
-  ])
+  ]
+  const dirHandle = ctx.llm.registerConfigurableProviders(buildDirEntries())
+  const updateProviderError = (error?: string): void => {
+    if (error === currentError) return
+    currentError = error
+    try {
+      dirHandle.replace(buildDirEntries(error))
+    } catch { /* registration may already be disposed */ }
+  }
+
   ctx.llm.registerAdapter(['localforge'], ccAdapter)
   ctx.llm.registerAdapter(['localforge-anthropic'], anthAdapter)
   ctx.llm.registerModelDiscovery('llm-localforge', async (req, sig) => {
     const conn = resolveConnFor('openai')
-    const key = await resolveApiKey(conn).catch(() => 'lm-studio')
-    const models = await fetchListing(conn.baseURL, key, conn.discoveryTimeoutMs, sig)
-    return models.map(m => ({
-      id: m.id,
-      ...m.contextWindow === undefined ? {} : { contextWindow: m.contextWindow },
-    }))
+    const baseURL = req.baseURL ?? conn.baseURL
+    const key = req.apiKey ?? await resolveApiKey(conn).catch(() => 'lm-studio')
+    try {
+      const models = await fetchListing(baseURL, key, conn.discoveryTimeoutMs, sig)
+      updateProviderError(undefined)
+      return models.map(m => ({
+        id: m.id,
+        ...m.contextWindow === undefined ? {} : { contextWindow: m.contextWindow },
+      }))
+    } catch (err) {
+      updateProviderError(err instanceof Error ? err.message : String(err))
+      throw err
+    }
   })
   ctx.llm.registerModelDiscovery('llm-localforge-anthropic', async (req, sig) => {
     const conn = resolveConnFor('anthropic')
-    const key = await resolveApiKey(conn).catch(() => 'lm-studio')
-    const models = await fetchListing(conn.baseURL, key, conn.discoveryTimeoutMs, sig)
-    return models.map(m => ({
-      id: m.id,
-      ...m.contextWindow === undefined ? {} : { contextWindow: m.contextWindow },
-    }))
+    const baseURL = req.baseURL ?? conn.baseURL
+    const key = req.apiKey ?? await resolveApiKey(conn).catch(() => 'lm-studio')
+    try {
+      const models = await fetchListing(baseURL, key, conn.discoveryTimeoutMs, sig)
+      updateProviderError(undefined)
+      return models.map(m => ({
+        id: m.id,
+        ...m.contextWindow === undefined ? {} : { contextWindow: m.contextWindow },
+      }))
+    } catch (err) {
+      updateProviderError(err instanceof Error ? err.message : String(err))
+      throw err
+    }
   })
 
-  // 8. install the settings section so the UI can edit it
+  // 8. health check (auto-reconnect, live provider status & structured-log transitions)
+  let hc: HealthCheck | undefined
+  if (initial.healthCheck.enabled) {
+    hc = new HealthCheck(
+      () => resolveConnFor('openai').baseURL,
+      () => resolveApiKey(resolveConnFor('openai')).catch(() => 'lm-studio'),
+      initial.healthCheck.intervalMs,
+      (healthy, errMsg) => {
+        updateProviderError(healthy ? undefined : errMsg)
+        logger.info({ healthy }, 'localforge health changed')
+      },
+    )
+    hc.start()
+    ctx.effect(() => () => {
+      hc?.stop()
+      metrics.queueDepth.reset()
+    })
+  }
+
+  // 9. install the settings section so the UI can edit it
   ctx.inject(['settings'], (sc) => {
     sc.settings.installSection(ctx, 'llm-localforge', ConfigSchema as never, initial as Config, {
       setSource: (s: () => Config) => {
         current = s
         openaiCache.invalidate()
         anthropicCache.invalidate()
+        hc?.probeNow()
       },
       onChange: () => {
         openaiCache.invalidate()
         anthropicCache.invalidate()
+        hc?.probeNow()
       },
     })
   })
 
-  // 9. metrics route
+  // 10. metrics route
   if (initial.metrics.enabled) {
-    ctx.inject(['http'] as never, (hc: unknown) => {
-      const http = hc as {
+    ctx.inject(['http'] as never, (hcHttp: unknown) => {
+      const http = hcHttp as {
         http: { use: (path: string, handler: (req: unknown, res: { setHeader: (k: string, v: string) => void; end: (b: string) => void }) => void) => void }
       }
       http.http.use('/metrics', async (_req, res) => {
@@ -205,23 +258,8 @@ export function apply(ctx: Context, rawConfig: ApplyConfig): void {
     })
   }
 
-  // 10. health check (auto-reconnect, structured-log transitions)
-  if (initial.healthCheck.enabled) {
-    const hc = new HealthCheck(
-      initial.defaultConnection.baseURL,
-      () => resolveApiKey(resolveConnFor('openai')),
-      initial.healthCheck.intervalMs,
-      (healthy) => logger.info({ healthy }, 'localforge health changed'),
-    )
-    hc.start()
-    ctx.on('dispose', () => {
-      hc.stop()
-      metrics.queueDepth.reset()
-    })
-  }
-
   logger.info(
-    { openai: openaiBaseURL, anthropic: anthropicBaseURL },
+    { openai: initial.defaultConnection.baseURL, anthropic: initial.anthropicConnection.baseURL },
     'localforge plugin applied',
   )
 }

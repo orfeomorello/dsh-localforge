@@ -78,7 +78,7 @@ export const ConfigSchema = z.object({
     prefix: z.string().default('dsh_localforge'),
   }).default({}),
   healthCheck: z.object({
-    enabled: z.boolean().default(false),
+    enabled: z.boolean().default(true),
     intervalMs: z.number().min(1_000).max(600_000).default(15_000),
   }).default({}),
 })

@@ -201,7 +201,11 @@ export class ChatCompletionsAdapter extends LlmAdapter {
       if (options.signal?.aborted) {
         throw new LlmError('caller aborted', 'ABORTED', { cause: err })
       }
-      throw new LlmError(`transport error: ${(err as Error).message}`, 'TRANSPORT', { cause: err })
+      throw new LlmError(
+        `Cannot reach LM Studio server at ${conn.baseURL}: ${(err as Error).message}. Make sure the Local Server is running in LM Studio (Developer tab -> Status: Running, or run "lms server start").`,
+        'TRANSPORT',
+        { cause: err },
+      )
     }
 
     if (!response.ok) {
@@ -246,7 +250,11 @@ export class ChatCompletionsAdapter extends LlmAdapter {
       }
       if (err instanceof LlmError) throw err
       metrics.errors.inc({ model, code: 'TRANSPORT' })
-      throw new LlmError(`transport error: ${(err as Error).message}`, 'TRANSPORT', { cause: err })
+      throw new LlmError(
+        `Cannot reach LM Studio server at ${conn.baseURL}: ${(err as Error).message}. Make sure the Local Server is running in LM Studio (Developer tab -> Status: Running, or run "lms server start").`,
+        'TRANSPORT',
+        { cause: err },
+      )
     } finally {
       controller.abort()
     }
