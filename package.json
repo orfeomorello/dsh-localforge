@@ -1,6 +1,6 @@
 {
   "name": "dsh-localforge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "High-performance LM Studio (and any OpenAI/Anthropic-compatible local server) chat-completions adapter for DeepSeek Harness, with live discovery, auto-load, model fallback, concurrency control, Prometheus metrics, and a permissive vision-aware partner adapter.",
   "type": "module",
   "main": "./lib/index.js",

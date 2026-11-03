@@ -4,6 +4,12 @@ All notable changes to LocalForge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-11-03
+
+### Added
+- **Live LM Studio connection diagnostics**: actionable error messages when LM Studio's Local Server is unreachable instead of generic `fetch failed` errors
+- **Real-time provider health status** in DSH Settings → Models via `registerConfigurableProviders` and `HealthCheck` (now enabled by default)
+
 ## [0.1.0] - 2026-XX-XX
 
 ### Added
@@ -62,5 +68,6 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - `anthropic-version`: `2023-06-01`
 - `MAX_THINKING_BUDGET`: 64000 (Anthropic's hard cap)
 
-[Unreleased]: https://github.com/orfeomorello/dsh-localforge/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/orfeomorello/dsh-localforge/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/orfeomorello/dsh-localforge/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/orfeomorello/dsh-localforge/releases/tag/v0.1.0
