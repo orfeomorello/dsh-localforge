@@ -27,7 +27,6 @@ import type {
   AnthropicEvent,
   AnthropicMessageDelta,
   AnthropicMessageStart,
-  AnthropicToolUseBlock,
 } from '../types/wire.ts'
 
 /** One open block under assembly. */
@@ -73,10 +72,18 @@ function closeBlock(block: OpenBlock): ContentBlock {
 }
 
 /** Handle a `message_start` event (no chunks emitted). */
-function applyMessageStart(_e: AnthropicMessageStart, _state: TranslateState): void {
-  // No content yet; the message metadata is for the harness's
-  // own bookkeeping if needed (e.g. request id correlation). We
-  // surface the input/output token baseline via the trailing usage.
+function applyMessageStart(e: AnthropicMessageStart, state: TranslateState): void {
+  // Record the baseline usage reported on `message_start` (Anthropic sends
+  // `input_tokens` here, and incremental `output_tokens` on `message_delta`).
+  const u = e.message?.usage
+  if (u !== undefined) {
+    state.usage = {
+      inputTokens: u.input_tokens ?? 0,
+      outputTokens: u.output_tokens ?? 0,
+      ...u.cache_read_input_tokens !== undefined ? { cacheReadTokens: u.cache_read_input_tokens } : {},
+      ...u.cache_creation_input_tokens !== undefined ? { cacheWriteTokens: u.cache_creation_input_tokens } : {},
+    }
+  }
 }
 
 /** Handle a `content_block_start` event. */
@@ -157,22 +164,18 @@ function applyContentBlockDelta(
   }
 }
 
-/** Handle a `content_block_stop` event. */
-function applyContentBlockStop(e: AnthropicContentBlockStop, _state: TranslateState): StreamChunk | undefined {
-  // We don't have the block here; the caller emits `block-end` on
-  // `message_stop` for every open block, in order. (Emitting one
-  // per `content_block_stop` would interleave badly with subsequent
-  // deltas that share the same `index` in pathological servers.)
-  return undefined
-}
-
 /** Handle a `message_delta` event (stop reason + cumulative usage). */
 function applyMessageDelta(e: AnthropicMessageDelta, state: TranslateState): void {
   state.pendingFinish = mapStopReason(e.delta.stop_reason)
   if (e.usage !== undefined) {
+    const prev = state.usage
+    const cacheRead = e.usage.cache_read_input_tokens ?? prev?.cacheReadTokens
+    const cacheWrite = e.usage.cache_creation_input_tokens ?? prev?.cacheWriteTokens
     state.usage = {
-      inputTokens: e.usage.input_tokens ?? 0,
+      inputTokens: e.usage.input_tokens ?? prev?.inputTokens ?? 0,
       outputTokens: e.usage.output_tokens,
+      ...cacheRead !== undefined ? { cacheReadTokens: cacheRead } : {},
+      ...cacheWrite !== undefined ? { cacheWriteTokens: cacheWrite } : {},
     }
   }
 }

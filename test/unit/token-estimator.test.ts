@@ -5,11 +5,12 @@ import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
 
 const counter = counterFor('cl100k_base')
 
-const req = (overrides: Partial<GenerateOptions> = {}): GenerateOptions => ({
+const req = (overrides: Record<string, unknown> = {}): GenerateOptions => ({
+  provider: 'localforge',
   model: 'm',
   messages: [],
   ...overrides,
-})
+} as unknown as GenerateOptions)
 
 describe('estimateInputTokens (real tokenizer)', () => {
   it('returns 0 for empty request', () => {

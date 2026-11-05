@@ -60,8 +60,9 @@ describe('AnthropicMessagesAdapter (integration)', () => {
 
   it('streams an Anthropic-style completion end-to-end', async () => {
     const opts: GenerateOptions = {
+      provider: 'localforge-anthropic',
       model: 'qwen/qwen3-8b',
-      messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }] as never,
     }
     const chunks: string[] = []
     let finish: { kind: string } | undefined
@@ -75,9 +76,10 @@ describe('AnthropicMessagesAdapter (integration)', () => {
 
   it('serializes a tool definition to Anthropic input_schema and uses it', async () => {
     const opts: GenerateOptions = {
+      provider: 'localforge-anthropic',
       model: 'qwen/qwen3-8b',
-      messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
-      tools: [{ name: 'noop', parameters: { type: 'object' } }],
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }] as never,
+      tools: [{ name: 'noop', description: 'No-op tool', parameters: { type: 'object' } as never }],
     }
     // Just verify the stream completes without error
     const out: string[] = []

@@ -12,7 +12,7 @@
  *    `thinking: { type: 'enabled', budget_tokens }`)
  *  - Full SSE translation including thinking, text, and tool_use blocks
  *  - Tool calling with partial-JSON delta accumulation
- *  - Vision via base64 image blocks
+ *  - Vision via base64 image blocks + automatic PDF text/image extraction
  *  - Fallback chain on recoverable errors
  *  - Idle watchdog + abort propagation
  *  - Prometheus metrics
@@ -34,6 +34,7 @@ import type {
   GenerateOptions,
   LlmModelInfo,
   LlmProviderInfo,
+  LlmResolvedModelInfo,
   ResolvedRetryPolicy,
   StreamChunk,
 } from '@deepseek-ai/dsh-llm'
@@ -105,16 +106,56 @@ export class AnthropicMessagesAdapter extends LlmAdapter {
     const byId = new Map(overrides.map(o => [o.id, o]))
     return models.map((m: LmStudioLoadedModel) => {
       const o = byId.get(m.id)
+      const contextWindow = o?.contextWindow ?? m.contextWindow
+      const defaultMaxTokens = o?.maxTokens
       return {
         provider,
         id: m.id,
         name: o?.name ?? m.id,
         ...o?.description !== undefined ? { description: o.description } : {},
+        ...contextWindow !== undefined ? { context: { contextWindow } } : {},
+        ...defaultMaxTokens !== undefined ? { defaultMaxTokens } : {},
         inputModalities: (o?.vision ?? m.vision) === false
           ? (['text'] as const)
           : (['text', 'image'] as const),
       }
     })
+  }
+
+  override async resolveModel(
+    provider: string,
+    model: string,
+    _signal?: AbortSignal,
+  ): Promise<LlmResolvedModelInfo> {
+    const conn = this.opts.resolveConn()
+    const overrides = this.opts.modelOverrides ?? []
+    const override = overrides.find(o => o.id === model)
+    let discovered: LmStudioLoadedModel | undefined
+    try {
+      const models = await this.opts.cache.get()
+      discovered = models.find(m => m.id === model)
+    } catch { /* best-effort discovery during resolveModel */ }
+
+    const contextWindow = override?.contextWindow
+      ?? discovered?.contextWindow
+      ?? conn.defaultContextWindow
+      ?? 32_768
+    const defaultMaxTokens = override?.maxTokens
+      ?? conn.defaultMaxTokens
+      ?? 4_096
+    const vision = override?.vision ?? discovered?.vision ?? true
+
+    return {
+      provider,
+      id: model,
+      name: override?.name ?? model,
+      ...override?.description !== undefined ? { description: override.description } : {},
+      context: { contextWindow },
+      defaultMaxTokens,
+      inputModalities: vision === false
+        ? (['text'] as const)
+        : (['text', 'image'] as const),
+    }
   }
 
   async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
@@ -124,8 +165,8 @@ export class AnthropicMessagesAdapter extends LlmAdapter {
     const override = overrides.find(o => o.id === options.model)
 
     // -- 1. resolve context window and output cap
-    const contextWindow = override?.contextWindow ?? conn.defaultContextWindow
-    const outputCap = options.maxTokens ?? override?.maxTokens ?? conn.defaultMaxTokens
+    const contextWindow = override?.contextWindow ?? conn.defaultContextWindow ?? 32_768
+    const outputCap = options.maxTokens ?? override?.maxTokens ?? conn.defaultMaxTokens ?? 4_096
 
     // -- 2. token pre-flight (real tokenizer)
     const counter = counterFor('cl100k_base')
@@ -159,10 +200,15 @@ export class AnthropicMessagesAdapter extends LlmAdapter {
       } catch { /* best-effort */ }
 
       // -- 5. build the wire request
+      const visionEnabled = override?.vision !== false
       let body = await serializeAnthropicRequest(
         options,
         this.opts.resolveAttachments?.(),
         outputCap,
+        {
+          ...conn.documents,
+          includeVisionImages: visionEnabled,
+        },
       )
       body = this.applyReasoning(body, override?.reasoningBudget)
       body = this.applyPresetFields(body, override?.preset)
@@ -186,7 +232,7 @@ export class AnthropicMessagesAdapter extends LlmAdapter {
   /** Apply the model's sampling preset to the Anthropic request body. */
   private applyPresetFields(body: AnthropicRequest, preset: PresetName | undefined): AnthropicRequest {
     if (preset === undefined) return body
-    const p = applyPreset({}, preset)
+    const p = applyPreset< { temperature?: number; top_p?: number } >({}, preset)
     return {
       ...body,
       ...p.temperature !== undefined ? { temperature: body.temperature ?? p.temperature } : {},

@@ -57,8 +57,9 @@ describe('ChatCompletionsAdapter (integration)', () => {
 
   it('streams a chat completion end-to-end', async () => {
     const opts: GenerateOptions = {
+      provider: 'localforge',
       model: 'qwen/qwen3-8b',
-      messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }] as never,
     }
     const chunks: string[] = []
     let finish: { kind: string } | undefined
@@ -72,12 +73,13 @@ describe('ChatCompletionsAdapter (integration)', () => {
 
   it('throws OVERFLOW when context window is exceeded', async () => {
     const opts: GenerateOptions = {
+      provider: 'localforge',
       model: 'qwen/qwen3-8b',
       maxTokens: 1000,
       messages: [{
         role: 'user',
-        content: [{ type: 'text', text: 'a'.repeat(100_000) }],
-      }],
+        content: [{ type: 'text', text: 'hello world '.repeat(30_000) }],
+      }] as never,
     }
     await expect(async () => {
       for await (const _c of adapter.stream(opts)) { /* drain */ }

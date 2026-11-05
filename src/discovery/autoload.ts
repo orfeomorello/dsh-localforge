@@ -35,7 +35,7 @@ export async function ensureLoaded(
   await fetch(`${root}/api/v0/models/${encodeURIComponent(modelId)}/load`, {
     method: 'POST',
     headers: { authorization: `Bearer ${apiKey}` },
-    signal,
+    ...signal !== undefined ? { signal } : {},
   }).catch(() => {/* 404 on old builds, fine */})
 
   // 3. poll until loaded or deadline

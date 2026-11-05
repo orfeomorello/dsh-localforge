@@ -26,6 +26,11 @@ things missing from every other adapter:
 - **Auto-load** — if the requested model isn't resident on LM Studio, ask
   the server to load it (`POST /api/v0/models/{id}/load`) and poll until
   ready.
+- **Native PDF, OCR & Local Folder Vision support** — automatically extracts
+  text and embedded/scanned page images from attached `.pdf` files and local
+  `.pdf` / `.png` / `.jpg` / `.jpeg` / `.webp` / `.gif` files or folders,
+  forwarding them directly to LM Studio Vision models as `image_url` /
+  `image` base64 blocks without requiring external Python setup in the chat.
 - **Per-model concurrency limiter** — LM Studio saturates under parallel
   streams on quantized models; LocalForge serializes them per model id.
 - **Model fallback chain** — `fallback: [primary, secondary]`. If the primary
@@ -100,6 +105,28 @@ llm-localforge:
 That's it. Point dsh at any conversation, select "LocalForge" as the
 provider, and traffic flows to LM Studio. Your DeepSeek API balance is
 untouched.
+
+## PDF, OCR & Vision Support
+
+Unlike LM Studio's desktop GUI (which parses attached PDFs client-side before
+sending the prompt), LM Studio's HTTP server endpoints (`/v1/chat/completions`
+and `/v1/messages`) only accept text and base64-encoded images. Furthermore,
+DeepSeek Harness converts uploaded files into read-only disk handles
+(`[File "doc.pdf" (...): verbatim read-only copy saved at "/path/to/doc.pdf"]`).
+
+LocalForge bridges both gaps automatically:
+
+1. **Vision Modality Resolution (`resolveModel`)**: Both `localforge` and
+   `localforge-anthropic` advertise `inputModalities: ['text', 'image']` (unless
+   overridden with `vision: false`), ensuring `dsh` preserves image blocks.
+2. **Automatic PDF Text & Embedded Image Extraction**: When you attach a `.pdf`
+   in `dsh` or reference a `.pdf` path on disk, LocalForge extracts selectable
+   page text **and** embedded/scanned page images (for Vision OCR on scanned
+   PDFs) and attaches them directly to the wire request.
+3. **Local Images & Folders**: Referencing local `.png`, `.jpg`, `.jpeg`,
+   `.webp`, or `.gif` files — or a local folder containing PDFs and images —
+   automatically attaches their extracted text and base64 Vision blocks so the
+   model can read them immediately without trying to install Python packages.
 
 ## Configuration
 

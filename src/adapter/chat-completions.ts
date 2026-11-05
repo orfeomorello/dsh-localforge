@@ -9,6 +9,7 @@
  *  - SSE parsing + translate (eventsource-parser → StreamChunks)
  *  - reasoning budget (as `reasoning_effort` or system reminder)
  *  - sampling preset application (per-model base, per-request override)
+ *  - automatic PDF text/image extraction & local Vision image loading
  *  - Prometheus metrics (TTFT, tokens, queue depth, errors)
  *  - model fallback chain on recoverable errors
  *
@@ -25,6 +26,7 @@ import type {
   GenerateOptions,
   LlmModelInfo,
   LlmProviderInfo,
+  LlmResolvedModelInfo,
   ResolvedRetryPolicy,
   StreamChunk,
 } from '@deepseek-ai/dsh-llm'
@@ -89,16 +91,56 @@ export class ChatCompletionsAdapter extends LlmAdapter {
     const byId = new Map(overrides.map(o => [o.id, o]))
     return models.map((m: LmStudioLoadedModel) => {
       const o = byId.get(m.id)
+      const contextWindow = o?.contextWindow ?? m.contextWindow
+      const defaultMaxTokens = o?.maxTokens
       return {
         provider,
         id: m.id,
         name: o?.name ?? m.id,
         ...o?.description !== undefined ? { description: o.description } : {},
+        ...contextWindow !== undefined ? { context: { contextWindow } } : {},
+        ...defaultMaxTokens !== undefined ? { defaultMaxTokens } : {},
         inputModalities: (o?.vision ?? m.vision) === false
           ? (['text'] as const)
           : (['text', 'image'] as const),
       }
     })
+  }
+
+  override async resolveModel(
+    provider: string,
+    model: string,
+    _signal?: AbortSignal,
+  ): Promise<LlmResolvedModelInfo> {
+    const conn = this.opts.resolveConn()
+    const overrides = this.opts.modelOverrides ?? []
+    const override = overrides.find(o => o.id === model)
+    let discovered: LmStudioLoadedModel | undefined
+    try {
+      const models = await this.opts.cache.get()
+      discovered = models.find(m => m.id === model)
+    } catch { /* best-effort discovery during resolveModel */ }
+
+    const contextWindow = override?.contextWindow
+      ?? discovered?.contextWindow
+      ?? conn.defaultContextWindow
+      ?? 32_768
+    const defaultMaxTokens = override?.maxTokens
+      ?? conn.defaultMaxTokens
+      ?? 4_096
+    const vision = override?.vision ?? discovered?.vision ?? true
+
+    return {
+      provider,
+      id: model,
+      name: override?.name ?? model,
+      ...override?.description !== undefined ? { description: override.description } : {},
+      context: { contextWindow },
+      defaultMaxTokens,
+      inputModalities: vision === false
+        ? (['text'] as const)
+        : (['text', 'image'] as const),
+    }
   }
 
   async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
@@ -108,8 +150,8 @@ export class ChatCompletionsAdapter extends LlmAdapter {
     const override = overrides.find(o => o.id === options.model)
 
     // -- 1. resolve context window and output cap
-    const contextWindow = override?.contextWindow ?? conn.defaultContextWindow
-    const outputCap = options.maxTokens ?? override?.maxTokens ?? conn.defaultMaxTokens
+    const contextWindow = override?.contextWindow ?? conn.defaultContextWindow ?? 32_768
+    const outputCap = options.maxTokens ?? override?.maxTokens ?? conn.defaultMaxTokens ?? 4_096
 
     // -- 2. real token pre-flight (gpt-tokenizer)
     const counter = createTokenizer(options.model).count
@@ -143,9 +185,14 @@ export class ChatCompletionsAdapter extends LlmAdapter {
       } catch { /* server may be old or already loaded */ }
 
       // -- 5. build the wire request, applying preset and reasoning budget
+      const visionEnabled = override?.vision !== false
       const baseBody = await serializeRequest(
         options,
         this.opts.resolveAttachments?.(),
+        {
+          ...conn.documents,
+          includeVisionImages: visionEnabled,
+        },
       )
       let body: WireRequest = baseBody
       body = applyPreset(body, override?.preset)

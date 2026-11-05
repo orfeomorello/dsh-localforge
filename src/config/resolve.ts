@@ -10,17 +10,20 @@
  * snapshot is logged. A bad snapshot at boot (no lastGood) propagates.
  */
 
-import type { Config } from './schema.ts'
+import type { Config, DocumentsConfig } from './schema.ts'
 
 export interface ResolvedConnection {
   baseURL: string
-  apiKeyEnv: string | undefined
+  apiKeyEnv?: string | undefined
   requestTimeoutMs: number
   streamIdleTimeoutMs: number
   discoveryTimeoutMs: number
   listingCacheMs: number
   maxConcurrentPerModel: number
-  retryPolicy: Config['defaultConnection']['retryPolicy']
+  retryPolicy: Config['defaultConnection']['retryPolicy'] | Record<string, unknown>
+  defaultContextWindow?: number | undefined
+  defaultMaxTokens?: number | undefined
+  documents?: DocumentsConfig | undefined
 }
 
 export function makeResolver(getConfig: () => Config): () => ResolvedConnection {
@@ -41,6 +44,9 @@ export function makeResolver(getConfig: () => Config): () => ResolvedConnection 
         listingCacheMs: raw.defaultConnection.listingCacheMs,
         maxConcurrentPerModel: raw.defaultConnection.maxConcurrentPerModel,
         retryPolicy: raw.defaultConnection.retryPolicy,
+        defaultContextWindow: raw.defaultContextWindow ?? 32_768,
+        defaultMaxTokens: raw.defaultMaxTokens ?? 4_096,
+        documents: raw.documents,
       }
       lastRaw = raw
       return lastGood

@@ -22,14 +22,12 @@ describe('translateAnthropic', () => {
     ]
     const chunks: string[] = []
     let finishKind: string | undefined
-    let finishCode: string | undefined
     let inputTokens = 0
     let outputTokens = 0
     for await (const c of translateAnthropic(fromArray(events))) {
       if (c.type === 'text-delta') chunks.push(c.text)
       if (c.type === 'finish') {
         finishKind = c.reason.kind
-        if (c.reason.kind === 'error') finishCode = c.reason.failure.code
       }
       if (c.type === 'usage') { inputTokens = c.usage.inputTokens; outputTokens = c.usage.outputTokens }
     }

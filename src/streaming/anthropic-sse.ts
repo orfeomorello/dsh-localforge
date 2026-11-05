@@ -35,9 +35,9 @@ export async function* parseAnthropicSse(
   stream: ReadableStream<BufferSource>,
 ): AsyncGenerator<AnthropicEvent> {
   const events = stream
-    .pipeThrough(new TextDecoderStream())
+    .pipeThrough(new TextDecoderStream() as unknown as ReadableWritablePair<string, BufferSource>)
     .pipeThrough(new EventSourceParserStream())
-  for await (const { event, data } of events) {
+  for await (const { event, data } of events as unknown as AsyncIterable<{ event?: string; data: string }>) {
     if (event === 'ping' || data === '') continue
     if (event === 'message_stop') {
       yield MESSAGE_STOP

@@ -135,14 +135,14 @@ export class MockLmStudio {
       }
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' })
       const chunks: string[] = [
-        JSON.stringify({ id: 'cmpl-1', object: 'chat.completion.chunk', created: 0, model,
-          choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }] }),
-        JSON.stringify({ id: 'cmpl-1', object: 'chat.completion.chunk', created: 0, model,
-          choices: [{ index: 0, delta: { content: 'mock reply' }, finish_reason: null }] }),
-        JSON.stringify({ id: 'cmpl-1', object: 'chat.completion.chunk', created: 0, model,
+        `data: ${JSON.stringify({ id: 'cmpl-1', object: 'chat.completion.chunk', created: 0, model,
+          choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }] })}\n\n`,
+        `data: ${JSON.stringify({ id: 'cmpl-1', object: 'chat.completion.chunk', created: 0, model,
+          choices: [{ index: 0, delta: { content: 'mock reply' }, finish_reason: null }] })}\n\n`,
+        `data: ${JSON.stringify({ id: 'cmpl-1', object: 'chat.completion.chunk', created: 0, model,
           choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
-          usage: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 } }),
-        '[DONE]',
+          usage: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 } })}\n\n`,
+        'data: [DONE]\n\n',
       ]
       this.streamSse(res, chunks)
     })

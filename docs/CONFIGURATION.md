@@ -117,10 +117,25 @@ exactly what LM Studio reports (typically `owner/name`, e.g.
 | `description` | string | Optional sub-label. |
 | `contextWindow` | int | Override the server-disclosed context. |
 | `maxTokens` | int | Default output cap for this model. |
-| `vision` | bool | Override the server's vision capability hint. |
+| `vision` | bool | Override the server's vision capability hint (`true` by default). |
 | `preset` | enum | `code`, `chat`, `creative`, `precise`. |
 | `reasoningBudget` | int | Max reasoning tokens before the final answer. OpenAI route: budget to `reasoning_effort` (Qwen3/GPT-OSS/DeepSeek-R1) or system reminder. Anthropic route: `thinking.budget_tokens`, clamped at 64 000. |
 | `fallback` | string[] | Alternative model ids to try on recoverable errors. |
+
+### `documents` (Automatic PDF, OCR & Local Image Vision Expansion)
+
+DeepSeek Harness converts attached files (such as `.pdf` documents) into read-only disk handles (`[File "name.pdf" (...): verbatim read-only copy saved at "/path/..."]`), while LM Studio's HTTP server (`/v1/chat/completions` and `/v1/messages`) expects extracted text and base64 Vision images (`image_url` / `image` blocks).
+
+LocalForge automatically intercepts attached `dsh` file handles as well as local `.pdf`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif` file or directory paths referenced in prompts/tool outputs:
+- For **PDFs**, LocalForge extracts both selectable text per page and embedded/scanned page images (for Vision OCR on scanned documents).
+- For **images**, LocalForge reads the image from disk and attaches it as a base64 Vision block (`image_url` on OpenAI route, `image` on Anthropic route) whenever the model has `vision: true` (the default).
+
+| Field | Type | Default | Notes |
+|-------|------|---------|-------|
+| `enabled` | bool | `true` | Enable automatic PDF text/image extraction and local image Vision attachment. |
+| `maxFileBytes` | int | `33554432` | Maximum file size in bytes (32 MiB) to expand from disk. |
+| `maxPdfImages` | int | `8` | Maximum number of embedded/scanned images to attach per PDF for Vision OCR. |
+| `maxPdfTextChars` | int | `100000` | Maximum characters of extracted text per PDF. |
 
 ### `metrics`
 

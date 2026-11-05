@@ -21,10 +21,6 @@ import {
   decode,
   isWithinTokenLimit,
 } from 'gpt-tokenizer'
-import type {
-  GptTokenizerEncoder,
-  TikEncoding,
-} from 'gpt-tokenizer'
 
 /** The encodings `gpt-tokenizer` ships. */
 export type SupportedEncoding =
@@ -34,6 +30,9 @@ export type SupportedEncoding =
   | 'p50k_edit'
   | 'r50k_base'
 
+export type GptTokenizerEncoder = typeof encode
+export type TikEncoding = SupportedEncoding
+
 const ENCODINGS: Readonly<Record<SupportedEncoding, GptTokenizerEncoder>> = {
   o200k_base: encode,
   cl100k_base: encode,
@@ -41,10 +40,6 @@ const ENCODINGS: Readonly<Record<SupportedEncoding, GptTokenizerEncoder>> = {
   p50k_edit: encode,
   r50k_base: encode,
 } as const
-
-/** gpt-tokenizer type aliases (avoid importing the full type surface). */
-type _Encoder = typeof encode
-type _Decoder = typeof decode
 
 /**
  * Map a model id to a `gpt-tokenizer` encoding. The pattern table
@@ -110,7 +105,7 @@ export function createTokenizer(
     countMany(texts) { return texts.map(t => enc(t).length) },
     encode(text) { return enc(text) },
     decode(tokens) { return decode(tokens as number[]) },
-    fits(text, limit) { return isWithinTokenLimit(text, limit, enc) },
+    fits(text, limit) { return isWithinTokenLimit(text, limit) !== false },
   }
 }
 
@@ -130,6 +125,3 @@ export function counterFor(encoding: SupportedEncoding): TokenCounter {
 
 /** Expose the heuristic for tests and consumers. */
 export const _internal = { pickEncodingForModel }
-
-/** Re-export the encoder type so tests can import it consistently. */
-export type { GptTokenizerEncoder, TikEncoding }

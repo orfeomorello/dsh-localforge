@@ -26,7 +26,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { LlmError } from '@deepseek-ai/dsh-llm'
 import { ConfigSchema } from './config/schema.ts'
-import type { Config } from './config/schema.ts'
+import type { Config, DocumentsConfig } from './config/schema.ts'
 import type { ResolvedConnection } from './config/resolve.ts'
 import { ListingCache } from './discovery/cache.ts'
 import { fetchListing } from './discovery/fetcher.ts'
@@ -60,6 +60,7 @@ export interface ApplyConfig {
     fallback?: readonly string[]
   }>
   tokenizer?: { encoding?: 'o200k_base' | 'cl100k_base' | 'p50k_base' | 'p50k_edit' | 'r50k_base' }
+  documents?: Partial<DocumentsConfig>
   metrics?: { enabled?: boolean; prefix?: string }
   healthCheck?: { enabled?: boolean; intervalMs?: number }
 }
@@ -73,11 +74,11 @@ export interface ApplyConfig {
  */
 export function apply(ctx: Context, rawConfig: ApplyConfig): void {
   // 1. validate and snapshot the initial config
-  const initial = ConfigSchema(rawConfig ?? {}) as Required<ApplyConfig>
+  const initial = ConfigSchema(rawConfig as unknown as Config)
   setMetricsPrefix(initial.metrics.prefix)
 
   // 2. per-request config resolvers (swap function for hot-reload)
-  let current: () => Config = () => initial as Config
+  let current: () => Config = () => initial
 
   // per-protocol resolver: callers pass a hint for which connection to read
   const resolveConnFor = (protocol: 'openai' | 'anthropic'): ResolvedConnection => {
@@ -92,6 +93,9 @@ export function apply(ctx: Context, rawConfig: ApplyConfig): void {
       listingCacheMs: c.listingCacheMs,
       maxConcurrentPerModel: c.maxConcurrentPerModel,
       retryPolicy: c.retryPolicy,
+      defaultContextWindow: cfg.defaultContextWindow ?? 32_768,
+      defaultMaxTokens: cfg.defaultMaxTokens ?? 4_096,
+      documents: cfg.documents,
     }
   }
 
@@ -229,8 +233,19 @@ export function apply(ctx: Context, rawConfig: ApplyConfig): void {
   }
 
   // 9. install the settings section so the UI can edit it
-  ctx.inject(['settings'], (sc) => {
-    sc.settings.installSection(ctx, 'llm-localforge', ConfigSchema as never, initial as Config, {
+  ctx.inject(['settings'] as never, (scUnknown: unknown) => {
+    const sc = scUnknown as {
+      settings: {
+        installSection: (
+          ctx: Context,
+          ns: string,
+          schema: never,
+          initial: Config,
+          hooks: { setSource: (s: () => Config) => void; onChange: () => void },
+        ) => void
+      }
+    }
+    sc.settings.installSection(ctx, 'llm-localforge', ConfigSchema as never, initial, {
       setSource: (s: () => Config) => {
         current = s
         openaiCache.invalidate()
@@ -294,5 +309,19 @@ export {
   serializeMessages,
 } from './streaming/serialize.ts'
 export { serializeAnthropicRequest } from './streaming/anthropic-serialize.ts'
+export {
+  classifyDocumentPath,
+  detectImageMediaType,
+  extractPdfPureJs,
+  extractPdfFile,
+  extractImageFile,
+  expandDocumentOrImagePath,
+  expandTextWithLocalDocuments,
+  inspectLocalPathOrDirectory,
+  type VisionMediaType,
+  type ExtractedVisionImage,
+  type DocumentExpansionResult,
+  type DocumentExpandOptions,
+} from './document/pdf-and-image.ts'
 export { registry as metricsRegistry } from './observability/metrics.ts'
 export { logger } from './observability/log.ts'

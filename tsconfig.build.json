@@ -10,6 +10,7 @@
     "declaration": false,
     "declarationMap": false,
     "sourceMap": false,
+    "noEmit": false,
     "noCheck": true,
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true

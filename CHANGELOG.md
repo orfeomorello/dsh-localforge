@@ -4,6 +4,17 @@ All notable changes to LocalForge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-11-05
+
+### Added
+- **Native PDF, OCR & Local Image Vision expansion** (`src/document/pdf-and-image.ts`): automatically intercepts `dsh` file handles (`[File "..." saved at "..."]`), `FileBlock` attachments, and local `.pdf`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif` file or directory paths, extracting PDF text and embedded/scanned page images and forwarding them as `image_url` (OpenAI) or base64 `image` (Anthropic) Vision blocks
+- **Adapter `resolveModel()` implementation** in `ChatCompletionsAdapter` and `AnthropicMessagesAdapter` so `@deepseek-ai/dsh-llm` receives `inputModalities: ['text', 'image']`, `context: { contextWindow }`, and `defaultMaxTokens` during `prepareCall()`
+- **`documents` configuration section** (`enabled`, `maxFileBytes`, `maxPdfImages`, `maxPdfTextChars`) to customize automatic PDF and Vision expansion
+
+### Fixed
+- Propagated `defaultContextWindow` and `defaultMaxTokens` through `ResolvedConnection` so context-window pre-flight checks always have valid limits
+- Preserved `message_start` baseline `input_tokens` across `message_delta` events in `translateAnthropic`
+
 ## [0.1.1] - 2026-11-03
 
 ### Added

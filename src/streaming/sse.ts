@@ -27,9 +27,9 @@ export const DONE = '[DONE]'
  */
 export async function* parseSse(stream: ReadableStream<BufferSource>): AsyncGenerator<string> {
   const events = stream
-    .pipeThrough(new TextDecoderStream())
+    .pipeThrough(new TextDecoderStream() as unknown as ReadableWritablePair<string, BufferSource>)
     .pipeThrough(new EventSourceParserStream())
-  for await (const { data } of events) {
+  for await (const { data } of events as unknown as AsyncIterable<{ data: string }>) {
     yield data
     if (data === DONE) return
   }

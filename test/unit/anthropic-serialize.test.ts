@@ -1,16 +1,22 @@
 import { describe, it, expect } from 'vitest'
 import { serializeAnthropicRequest } from '../../src/streaming/anthropic-serialize.ts'
-import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, type GenerateOptions } from '@deepseek-ai/dsh-llm'
+
+const makeOpts = (overrides: Record<string, unknown>): GenerateOptions => ({
+  provider: 'localforge-anthropic',
+  model: 'm',
+  messages: [],
+  ...overrides,
+} as unknown as GenerateOptions)
 
 describe('serializeAnthropicRequest', () => {
   it('folds system messages into a top-level system field', async () => {
-    const opts: GenerateOptions = {
-      model: 'm',
+    const opts = makeOpts({
       messages: [
         { role: 'system', content: [{ type: 'text', text: 'You are helpful.' }] },
         { role: 'user', content: [{ type: 'text', text: 'hi' }] },
       ],
-    }
+    })
     const body = await serializeAnthropicRequest(opts, undefined, 4096)
     expect(body.system).toBe('You are helpful.')
     expect(body.messages.length).toBe(1)
@@ -18,14 +24,13 @@ describe('serializeAnthropicRequest', () => {
   })
 
   it('folds multiple system messages into an array of blocks', async () => {
-    const opts: GenerateOptions = {
-      model: 'm',
+    const opts = makeOpts({
       messages: [
         { role: 'system', content: [{ type: 'text', text: 'first' }] },
         { role: 'system', content: [{ type: 'text', text: 'second' }] },
         { role: 'user', content: [{ type: 'text', text: 'hi' }] },
       ],
-    }
+    })
     const body = await serializeAnthropicRequest(opts, undefined, 4096)
     expect(Array.isArray(body.system)).toBe(true)
     if (Array.isArray(body.system)) {
@@ -34,24 +39,22 @@ describe('serializeAnthropicRequest', () => {
   })
 
   it('uses options.system when provided, ignoring in-message system', async () => {
-    const opts: GenerateOptions = {
-      model: 'm',
+    const opts = makeOpts({
       system: 'from options',
       messages: [
         { role: 'system', content: [{ type: 'text', text: 'from message' }] },
         { role: 'user', content: [{ type: 'text', text: 'hi' }] },
       ],
-    }
+    })
     const body = await serializeAnthropicRequest(opts, undefined, 4096)
     expect(body.system).toBe('from options')
   })
 
   it('serializes tool definitions with input_schema', async () => {
-    const opts: GenerateOptions = {
-      model: 'm',
+    const opts = makeOpts({
       messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
       tools: [{ name: 'search', description: 'Search the web', parameters: { type: 'object', properties: { q: { type: 'string' } } } }],
-    }
+    })
     const body = await serializeAnthropicRequest(opts, undefined, 4096)
     expect(body.tools?.length).toBe(1)
     expect(body.tools?.[0]?.name).toBe('search')
@@ -59,15 +62,14 @@ describe('serializeAnthropicRequest', () => {
   })
 
   it('serializes assistant tool-call as tool_use block', async () => {
-    const opts: GenerateOptions = {
-      model: 'm',
+    const opts = makeOpts({
       messages: [
         { role: 'user', content: [{ type: 'text', text: 'search' }] },
         { role: 'assistant', content: [
-          { type: 'tool-call', id: 'call_1', name: 'search', arguments: '{"q":"hello"}' },
+          { type: 'tool-call', id: ToolCallId('call_1'), name: 'search', arguments: '{"q":"hello"}' },
         ] },
       ],
-    }
+    })
     const body = await serializeAnthropicRequest(opts, undefined, 4096)
     const assistant = body.messages[1]
     expect(assistant?.role).toBe('assistant')
@@ -83,14 +85,13 @@ describe('serializeAnthropicRequest', () => {
   })
 
   it('serializes user tool-result as tool_result block', async () => {
-    const opts: GenerateOptions = {
-      model: 'm',
+    const opts = makeOpts({
       messages: [
         { role: 'user', content: [
-          { type: 'tool-result', toolCallId: 'call_1', content: [{ type: 'text', text: 'result text' }] },
+          { type: 'tool-result', toolCallId: ToolCallId('call_1'), content: [{ type: 'text', text: 'result text' }] },
         ] },
       ],
-    }
+    })
     const body = await serializeAnthropicRequest(opts, undefined, 4096)
     const user = body.messages[0]
     expect(user?.role).toBe('user')
@@ -104,29 +105,26 @@ describe('serializeAnthropicRequest', () => {
   })
 
   it('always sets max_tokens (Anthropic requires it)', async () => {
-    const opts: GenerateOptions = {
-      model: 'm',
+    const opts = makeOpts({
       messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
-    }
+    })
     const body = await serializeAnthropicRequest(opts, undefined, 4096)
     expect(body.max_tokens).toBe(4096)
   })
 
   it('renames stop to stop_sequences', async () => {
-    const opts: GenerateOptions = {
-      model: 'm',
-      stop: 'END',
+    const opts = makeOpts({
+      stop: ['END'],
       messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
-    }
+    })
     const body = await serializeAnthropicRequest(opts, undefined, 4096)
     expect(body.stop_sequences).toEqual(['END'])
   })
 
   it('sets stream: true', async () => {
-    const opts: GenerateOptions = {
-      model: 'm',
+    const opts = makeOpts({
       messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
-    }
+    })
     const body = await serializeAnthropicRequest(opts, undefined, 4096)
     expect(body.stream).toBe(true)
   })

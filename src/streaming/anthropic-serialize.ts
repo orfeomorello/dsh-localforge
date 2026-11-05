@@ -21,7 +21,13 @@
  */
 
 import type { ContentBlock, GenerateOptions, Message } from '@deepseek-ai/dsh-llm'
-import type { AttachmentStore, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import type { AttachmentStore, FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import {
+  expandDocumentOrImagePath,
+  expandTextWithLocalDocuments,
+  type DocumentExpandOptions,
+  type ExtractedVisionImage,
+} from '../document/pdf-and-image.ts'
 import type {
   AnthropicAssistantContentBlock,
   AnthropicImageBlock,
@@ -58,17 +64,34 @@ async function imageBlockOf(
   }
 }
 
+/** Convert an extracted Vision image into an Anthropic image block. */
+function visionImageToAnthropicBlock(img: ExtractedVisionImage): AnthropicImageBlock {
+  return {
+    type: 'image',
+    source: {
+      type: 'base64',
+      media_type: img.mediaType,
+      data: img.base64,
+    },
+  }
+}
+
 /** Serialize one user-role message into Anthropic user blocks. */
 async function serializeUser(
   message: Message,
   attachments: AttachmentStore | undefined,
+  docOptions?: DocumentExpandOptions,
 ): Promise<AnthropicUserContentBlock[]> {
   const blocks: AnthropicUserContentBlock[] = []
   for (const block of message.content) {
     switch (block.type) {
       case 'text':
         if (block.text.length > 0) {
-          blocks.push({ type: 'text', text: block.text })
+          const expanded = await expandTextWithLocalDocuments(block.text, docOptions)
+          blocks.push({ type: 'text', text: expanded.text })
+          for (const img of expanded.images) {
+            blocks.push(visionImageToAnthropicBlock(img))
+          }
         }
         break
       case 'image': {
@@ -78,9 +101,25 @@ async function serializeUser(
         blocks.push(await imageBlockOf(block.attachment, attachments))
         break
       }
+      case 'file': {
+        const fileBlock = block as unknown as { type: 'file'; attachment: FileAttachmentRef }
+        const filePath = attachments?.fileHostPath(fileBlock.attachment)
+        if (filePath !== undefined) {
+          const expanded = await expandDocumentOrImagePath(filePath, docOptions)
+          if (expanded !== undefined) {
+            blocks.push({ type: 'text', text: expanded.textSummary })
+            for (const img of expanded.images) {
+              blocks.push(visionImageToAnthropicBlock(img))
+            }
+          }
+        }
+        break
+      }
       case 'tool-result': {
-        const inner: AnthropicTextBlock[] = flattenText(block.content).length > 0
-          ? [{ type: 'text', text: flattenText(block.content) || '(no output)' }]
+        const rawToolText = flattenText(block.content)
+        const expandedTool = await expandTextWithLocalDocuments(rawToolText, docOptions)
+        const inner: AnthropicTextBlock[] = expandedTool.text.length > 0
+          ? [{ type: 'text', text: expandedTool.text }]
           : []
         const tr: AnthropicToolResultBlock = {
           type: 'tool_result',
@@ -88,6 +127,9 @@ async function serializeUser(
           content: inner.length > 0 ? inner : '(no output)',
         }
         blocks.push(tr)
+        for (const img of expandedTool.images) {
+          blocks.push(visionImageToAnthropicBlock(img))
+        }
         break
       }
       case 'reasoning':
@@ -152,6 +194,7 @@ export async function serializeAnthropicRequest(
   options: GenerateOptions,
   attachments: AttachmentStore | undefined,
   defaultMaxTokens: number,
+  docOptions?: DocumentExpandOptions,
 ): Promise<AnthropicRequest> {
   // 1. collect and fold system messages
   const systemTexts: string[] = []
@@ -166,7 +209,7 @@ export async function serializeAnthropicRequest(
       const content = serializeAssistant(m)
       if (content.length > 0) messages.push({ role: 'assistant', content })
     } else {
-      const content = await serializeUser(m, attachments)
+      const content = await serializeUser(m, attachments, docOptions)
       if (content.length > 0) messages.push({ role: 'user', content })
     }
   }
@@ -191,6 +234,7 @@ export async function serializeAnthropicRequest(
   }))
 
   // 4. assemble
+  const topP = (options as GenerateOptions & { top_p?: number }).top_p
   return {
     model: options.model,
     ...system !== undefined ? { system } : {},
@@ -199,7 +243,7 @@ export async function serializeAnthropicRequest(
     max_tokens: options.maxTokens ?? defaultMaxTokens,
     stream: true,
     ...options.temperature !== undefined ? { temperature: options.temperature } : {},
-    ...options.top_p !== undefined ? { top_p: options.top_p } : {},
+    ...topP !== undefined ? { top_p: topP } : {},
     ...options.stop !== undefined ? { stop_sequences: Array.isArray(options.stop) ? options.stop : [options.stop] } : {},
   }
 }

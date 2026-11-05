@@ -30,10 +30,10 @@ export interface SamplingParams {
  * Apply a named preset to a sampling params bag, never overriding fields the
  * caller already set. The preset name is ignored if undefined.
  */
-export function applyPreset(
-  params: SamplingParams,
+export function applyPreset<T extends SamplingParams>(
+  params: T,
   preset: PresetName | undefined,
-): SamplingParams {
+): T {
   if (!preset) return params
   const p = SamplingPresets[preset]
   return {

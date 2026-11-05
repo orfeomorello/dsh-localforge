@@ -58,7 +58,8 @@ describe('translate', () => {
     ]
     const out: string[] = []
     for await (const c of translate(fromArray(chunks))) {
-      if (c.type === 'block-start' || c.type === 'block-end') out.push(`block:${c.blockType}`)
+      if (c.type === 'block-start') out.push(`block:${c.blockType}`)
+      if (c.type === 'block-end') out.push(`block:${c.block.type}`)
       if (c.type === 'text-delta') out.push(`text:${c.text}`)
       if (c.type === 'finish') out.push(`finish:${c.reason.kind}`)
       if (c.type === 'usage') out.push(`usage:${c.usage.inputTokens}`)

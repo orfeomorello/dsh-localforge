@@ -2,7 +2,7 @@
  * Schemastery schemas for the `llm-localforge` settings section.
  *
  * Schemastery powers both the runtime validation (when the user writes
- * settings) and the inferred TypeScript types (via `z.infer`). Every
+ * settings) and the inferred TypeScript types (via `z.TypeT`). Every
  * field is optional and has a default so a user can write an empty
  * section and the plugin still works against the local default server.
  */
@@ -65,26 +65,41 @@ const Tokenizer = z.object({
   encoding: ENCODING,
 })
 
+/** Document and Vision (PDF/OCR/image) expansion settings. */
+const Documents = z.object({
+  /** Automatically extract text and Vision images from attached PDFs and local image/PDF paths. */
+  enabled: z.boolean().default(true),
+  /** Maximum file size in bytes to read when expanding PDFs or images (default: 32 MiB). */
+  maxFileBytes: z.number().min(1_024).max(268_435_456).default(33_554_432),
+  /** Maximum number of embedded/page images to attach per PDF for Vision OCR. */
+  maxPdfImages: z.number().min(0).max(32).default(8),
+  /** Maximum characters of text to extract per PDF. */
+  maxPdfTextChars: z.number().min(1_000).max(1_000_000).default(100_000),
+})
+
 export const ConfigSchema = z.object({
-  defaultConnection: Connection.default({}),
-  anthropicConnection: AnthropicConnection.default({}),
+  defaultConnection: Connection.default({} as never),
+  anthropicConnection: AnthropicConnection.default({} as never),
   defaultContextWindow: z.number().min(1).default(32_768),
   defaultMaxTokens: z.number().min(1).default(4_096),
   models: z.array(ModelOverride).default([]),
   /** Tokenizer settings. */
-  tokenizer: Tokenizer.default({}),
+  tokenizer: Tokenizer.default({} as never),
+  /** PDF and local image Vision expansion settings. */
+  documents: Documents.default({} as never),
   metrics: z.object({
     enabled: z.boolean().default(true),
     prefix: z.string().default('dsh_localforge'),
-  }).default({}),
+  }).default({} as never),
   healthCheck: z.object({
     enabled: z.boolean().default(true),
     intervalMs: z.number().min(1_000).max(600_000).default(15_000),
-  }).default({}),
+  }).default({} as never),
 })
 
-export type Config = z.infer<typeof ConfigSchema>
-export type ConnectionConfig = z.infer<typeof Connection>
-export type AnthropicConnectionConfig = z.infer<typeof AnthropicConnection>
-export type ModelOverrideConfig = z.infer<typeof ModelOverride>
-export type TokenizerConfig = z.infer<typeof Tokenizer>
+export type Config = Schemastery.TypeT<typeof ConfigSchema>
+export type ConnectionConfig = Schemastery.TypeT<typeof Connection>
+export type AnthropicConnectionConfig = Schemastery.TypeT<typeof AnthropicConnection>
+export type ModelOverrideConfig = Schemastery.TypeT<typeof ModelOverride>
+export type TokenizerConfig = Schemastery.TypeT<typeof Tokenizer>
+export type DocumentsConfig = Schemastery.TypeT<typeof Documents>
