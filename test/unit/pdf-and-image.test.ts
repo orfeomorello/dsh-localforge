@@ -142,6 +142,15 @@ describe('pdf-and-image document & Vision processor', () => {
     expect(expanded.images.length).toBe(2)
   })
 
+  it('decodes JSON-escaped Windows paths exactly as dsh-llm fileHandleText emits them', async () => {
+    // Mirror dsh-llm's content.js: `File ${JSON.stringify(name)} (...)` and
+    // `saved at ${JSON.stringify(readonlyPath)}` — on Windows backslashes are doubled.
+    const handle = `[File ${JSON.stringify('fattura-2026.pdf')} (512 bytes, sha256:12345678): verbatim read-only copy saved at ${JSON.stringify(samplePdfPath)}. Read that path with your file tools when its contents are needed; copy it to a writable location before modifying it.]`
+    const expanded = await expandTextWithLocalDocuments(handle)
+    expect(expanded.text).toContain('Fattura N. 42 - Totale Euro 1250.00')
+    expect(expanded.images.length).toBeGreaterThanOrEqual(1)
+  })
+
   it('expands a local directory path when referenced in prompt or inspectLocalPathOrDirectory', async () => {
     const dirRes = await inspectLocalPathOrDirectory(tmpDir)
     expect(dirRes.text).toContain('fattura-2026.pdf')

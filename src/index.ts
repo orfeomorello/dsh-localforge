@@ -35,6 +35,11 @@ import { AnthropicMessagesAdapter } from './adapter/anthropic-messages.ts'
 import { logger } from './observability/log.ts'
 import { metrics, registry, setMetricsPrefix } from './observability/metrics.ts'
 import { HealthCheck } from './observability/health.ts'
+import {
+  buildReadDocumentTool,
+  READ_DOCUMENT_TOOL_NAME,
+  type ToolsRegistryLike,
+} from './document/tool.ts'
 
 /** The plugin's Cordis row id (must match `cordis.patch.yml`). */
 export const name = 'llm-localforge'
@@ -260,7 +265,17 @@ export function apply(ctx: Context, rawConfig: ApplyConfig): void {
     })
   })
 
-  // 10. metrics route
+  // 10. localforge_read_document tool (only when the tools service is mounted)
+  if (initial.documents.enabled) {
+    ctx.inject(['tools'] as never, (tcUnknown: unknown) => {
+      const tc = tcUnknown as { tools?: ToolsRegistryLike }
+      if (tc.tools === undefined) return
+      tc.tools.register(buildReadDocumentTool(() => current().documents))
+      logger.info({ tool: READ_DOCUMENT_TOOL_NAME }, 'localforge document tool registered')
+    })
+  }
+
+  // 11. metrics route
   if (initial.metrics.enabled) {
     ctx.inject(['http'] as never, (hcHttp: unknown) => {
       const http = hcHttp as {
@@ -323,5 +338,11 @@ export {
   type DocumentExpansionResult,
   type DocumentExpandOptions,
 } from './document/pdf-and-image.ts'
+export {
+  buildReadDocumentTool,
+  readDocumentForTool,
+  visionAttachMarker,
+  READ_DOCUMENT_TOOL_NAME,
+} from './document/tool.ts'
 export { registry as metricsRegistry } from './observability/metrics.ts'
 export { logger } from './observability/log.ts'

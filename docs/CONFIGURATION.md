@@ -137,6 +137,16 @@ LocalForge automatically intercepts attached `dsh` file handles as well as local
 | `maxPdfImages` | int | `8` | Maximum number of embedded/scanned images to attach per PDF for Vision OCR. |
 | `maxPdfTextChars` | int | `100000` | Maximum characters of extracted text per PDF. |
 
+#### The `localforge_read_document` tool
+
+When `documents.enabled` is `true` and the harness tools service is mounted, LocalForge registers a tool the model can call explicitly:
+
+```json
+{ "name": "localforge_read_document", "arguments": { "path": "C:\\documenti" } }
+```
+
+`path` is a PDF/image file or a folder (up to 20 supported files). The result contains the extracted text; with a LocalForge vision route the page/image pixels are attached too. Use this when you just say "read the files in this folder" and the model would otherwise reach for `bash` or `pip install`.
+
 ### `metrics`
 
 | Field | Type | Default | Notes |

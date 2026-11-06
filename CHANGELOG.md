@@ -4,6 +4,15 @@ All notable changes to LocalForge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-11-06
+
+### Added
+- **`localforge_read_document` tool** (`src/document/tool.ts`): registered on `ctx.tools` when the tools service is mounted (raw JSON Schema, no extra dependency). The model can pass a PDF/image path or a folder (up to 20 files) and gets the extracted text plus Vision-attached pixels, instead of trying to install Python packages. Controlled by `documents.enabled`
+- `[LocalForge Vision Attach: "<path>"]` marker: the serializers attach the images of tool results carrying it, without duplicating the extracted text
+
+### Fixed
+- dsh file handles are now decoded as JSON string literals, matching how `dsh-llm` quotes names and paths (escaped backslashes, quotes)
+
 ## [0.1.2] - 2026-11-05
 
 ### Added

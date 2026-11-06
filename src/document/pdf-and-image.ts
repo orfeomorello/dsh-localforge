@@ -80,7 +80,26 @@ const IMAGE_EXTENSIONS: Readonly<Record<string, VisionMediaType>> = {
  * Regex matching `dsh-llm`'s `fileHandleText()` output:
  * `[File "name.pdf" (123 bytes, sha256:abcdef12): verbatim read-only copy saved at "/path/to/file.pdf". ...]`
  */
-const DSH_FILE_HANDLE_RE = /\[File\s+"([^"]+)"\s+\([^)]*\):\s+verbatim read-only copy saved at\s+"([^"]+)"[^\]]*\]/g
+const DSH_FILE_HANDLE_RE = /\[File\s+("(?:[^"\\]|\\.)*")\s+\([^)]*\):\s+verbatim read-only copy saved at\s+("(?:[^"\\]|\\.)*")/g
+
+/**
+ * Marker emitted by the `localforge_read_document` tool:
+ * `[LocalForge Vision Attach: "<JSON-quoted path>"]`.
+ */
+const VISION_ATTACH_RE = /\[LocalForge Vision Attach:\s+("(?:[^"\\]|\\.)*")\]/g
+
+/**
+ * Decode a JSON string literal emitted by `dsh-llm`'s `quoted()` helper
+ * (`JSON.stringify`). On Windows this turns `"C:\\Users\\x.pdf"` back into
+ * `C:\Users\x.pdf`. Falls back to stripping the quotes when not valid JSON.
+ */
+function decodeQuotedLiteral(literal: string): string {
+  try {
+    const parsed = JSON.parse(literal) as unknown
+    if (typeof parsed === 'string') return parsed
+  } catch { /* not valid JSON; fall through */ }
+  return literal.replace(/^"|"$/g, '')
+}
 
 /**
  * Regex matching explicit local file paths ending in `.pdf`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`
@@ -582,10 +601,25 @@ export async function expandTextWithLocalDocuments(
 
   const seenPaths = new Set<string>()
   const candidatePaths: string[] = []
+  const attachOnlyImages: ExtractedVisionImage[] = []
+
+  // 0. `[LocalForge Vision Attach: "<path>"]` markers emitted by the
+  //    localforge_read_document tool: the text is already in the tool
+  //    output, so attach only the pixels.
+  for (const match of text.matchAll(VISION_ATTACH_RE)) {
+    const literal = match[1]
+    if (literal === undefined) continue
+    const attachPath = decodeQuotedLiteral(literal)
+    if (seenPaths.has(attachPath)) continue
+    seenPaths.add(attachPath)
+    seenPaths.add(literal.slice(1, -1))
+    const expanded = await expandDocumentOrImagePath(attachPath, options)
+    if (expanded !== undefined) attachOnlyImages.push(...expanded.images)
+  }
 
   // 1. Match dsh file handles: `[File "..." (...): verbatim read-only copy saved at "<path>"...]`
   for (const match of text.matchAll(DSH_FILE_HANDLE_RE)) {
-    const savedPath = match[2]
+    const savedPath = match[2] !== undefined ? decodeQuotedLiteral(match[2]) : undefined
     if (savedPath !== undefined && !seenPaths.has(savedPath)) {
       seenPaths.add(savedPath)
       candidatePaths.push(savedPath)
@@ -612,11 +646,11 @@ export async function expandTextWithLocalDocuments(
   }
 
   if (candidatePaths.length === 0 && candidateDirs.length === 0) {
-    return { text, images: [] }
+    return { text, images: attachOnlyImages }
   }
 
   const appendedSummaries: string[] = []
-  const extractedImages: ExtractedVisionImage[] = []
+  const extractedImages: ExtractedVisionImage[] = [...attachOnlyImages]
 
   for (const candidatePath of candidatePaths) {
     const expanded = await expandDocumentOrImagePath(candidatePath, options)
@@ -649,7 +683,7 @@ export async function expandTextWithLocalDocuments(
   }
 
   if (appendedSummaries.length === 0) {
-    return { text, images: [] }
+    return { text, images: extractedImages }
   }
 
   return {

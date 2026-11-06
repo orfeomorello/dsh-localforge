@@ -127,6 +127,7 @@ LocalForge bridges both gaps automatically:
    `.webp`, or `.gif` files — or a local folder containing PDFs and images —
    automatically attaches their extracted text and base64 Vision blocks so the
    model can read them immediately without trying to install Python packages.
+4. **`localforge_read_document` tool**: when you just ask the model to read a folder, it can call this tool to get PDF text and Vision images directly instead of using `bash` or `pip install`.
 
 ## Configuration
 
