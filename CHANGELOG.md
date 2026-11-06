@@ -4,6 +4,11 @@ All notable changes to LocalForge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-11-06
+
+### Fixed
+- **Vision gating now follows the model's real capabilities** (`src/config/model-capabilities.ts`): images are only attached when the model actually accepts them. The precedence is per-model `vision` override → discovered capability → permissive default, applied identically in `listModels()`, `resolveModel()` and `stream()` of both `ChatCompletionsAdapter` and `AnthropicMessagesAdapter`, so a text-only model is no longer advertised as `inputModalities: ['text']` while its requests still carried `image_url` / `image` blocks
+
 ## [0.1.3] - 2026-11-06
 
 ### Added
