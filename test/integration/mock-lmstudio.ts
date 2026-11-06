@@ -32,6 +32,9 @@ export class MockLmStudio {
   private server: http.Server
   private readonly state: { models: MockModel[]; apiKey?: string }
 
+  /** Parsed body of the last chat/messages request, for test assertions. */
+  lastRequestBody: unknown = undefined
+
   constructor(opts: MockLmStudioOptions = {}) {
     this.state = {
       models: opts.models ?? [],
@@ -127,6 +130,7 @@ export class MockLmStudio {
       try { parsed = JSON.parse(body) } catch {
         res.writeHead(400); res.end(); return
       }
+      this.lastRequestBody = parsed
       const model = parsed.model ?? ''
       if (!this.state.models.find(m => m.id === model)) {
         res.writeHead(404, { 'content-type': 'application/json' })
@@ -154,6 +158,7 @@ export class MockLmStudio {
       try { parsed = JSON.parse(body) } catch {
         res.writeHead(400); res.end(); return
       }
+      this.lastRequestBody = parsed
       const model = parsed.model ?? ''
       if (!this.state.models.find(m => m.id === model)) {
         res.writeHead(404, { 'content-type': 'application/json' })

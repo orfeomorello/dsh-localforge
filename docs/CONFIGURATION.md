@@ -117,7 +117,7 @@ exactly what LM Studio reports (typically `owner/name`, e.g.
 | `description` | string | Optional sub-label. |
 | `contextWindow` | int | Override the server-disclosed context. |
 | `maxTokens` | int | Default output cap for this model. |
-| `vision` | bool | Override the server's vision capability hint (`true` by default). |
+| `vision` | bool | Override the server's vision capability hint. Also controls whether image blocks are attached to the wire request; when omitted, the capability discovered from LM Studio (`type: 'llm'` / `'vlm'`) decides. |
 | `preset` | enum | `code`, `chat`, `creative`, `precise`. |
 | `reasoningBudget` | int | Max reasoning tokens before the final answer. OpenAI route: budget to `reasoning_effort` (Qwen3/GPT-OSS/DeepSeek-R1) or system reminder. Anthropic route: `thinking.budget_tokens`, clamped at 64 000. |
 | `fallback` | string[] | Alternative model ids to try on recoverable errors. |
@@ -128,7 +128,7 @@ DeepSeek Harness converts attached files (such as `.pdf` documents) into read-on
 
 LocalForge automatically intercepts attached `dsh` file handles as well as local `.pdf`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif` file or directory paths referenced in prompts/tool outputs:
 - For **PDFs**, LocalForge extracts both selectable text per page and embedded/scanned page images (for Vision OCR on scanned documents).
-- For **images**, LocalForge reads the image from disk and attaches it as a base64 Vision block (`image_url` on OpenAI route, `image` on Anthropic route) whenever the model has `vision: true` (the default).
+- For **images**, LocalForge reads the image from disk and attaches it as a base64 Vision block (`image_url` on OpenAI route, `image` on Anthropic route) whenever the model supports vision: LM Studio's discovered capability, or the per-model `vision` override. Text-only models receive the extracted text only.
 
 | Field | Type | Default | Notes |
 |-------|------|---------|-------|

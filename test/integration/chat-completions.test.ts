@@ -3,26 +3,46 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import os from 'node:os'
 import { ChatCompletionsAdapter } from '../../src/adapter/chat-completions.ts'
 import { ListingCache } from '../../src/discovery/cache.ts'
 import { fetchListing } from '../../src/discovery/fetcher.ts'
 import { MockLmStudio } from './mock-lmstudio.ts'
 import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
 
+/** Minimal 1x1 transparent PNG. */
+const SAMPLE_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64',
+)
+
 describe('ChatCompletionsAdapter (integration)', () => {
   let mock: MockLmStudio
   let baseURL: string
   let adapter: ChatCompletionsAdapter
+  let tmpDir: string
+  let pngPath: string
 
   beforeAll(async () => {
     mock = new MockLmStudio({
-      models: [{
-        id: 'qwen/qwen3-8b',
-        type: 'llm',
-        state: 'loaded',
-        loaded_context_length: 32_768,
-        max_context_length: 32_768,
-      }],
+      models: [
+        {
+          id: 'qwen/qwen3-8b',
+          type: 'llm',
+          state: 'loaded',
+          loaded_context_length: 32_768,
+          max_context_length: 32_768,
+        },
+        {
+          id: 'qwen/qwen2.5-vl-7b',
+          type: 'vlm',
+          state: 'loaded',
+          loaded_context_length: 32_768,
+          max_context_length: 32_768,
+        },
+      ],
     })
     const serverUrl = await mock.listen()
     baseURL = `${serverUrl}/v1`
@@ -45,13 +65,20 @@ describe('ChatCompletionsAdapter (integration)', () => {
       resolveApiKey: async () => 'lm-studio',
       cache,
     })
+
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'localforge-adapter-test-'))
+    pngPath = path.join(tmpDir, 'diagramma.png')
+    await fs.writeFile(pngPath, SAMPLE_PNG)
   })
 
-  afterAll(async () => { await mock.close() })
+  afterAll(async () => {
+    await mock.close()
+    await fs.rm(tmpDir, { recursive: true, force: true })
+  })
 
   it('lists models from the native endpoint', async () => {
     const models = await adapter.listModels('localforge')
-    expect(models.length).toBe(1)
+    expect(models.length).toBe(2)
     expect(models[0]?.id).toBe('qwen/qwen3-8b')
   })
 
@@ -69,6 +96,47 @@ describe('ChatCompletionsAdapter (integration)', () => {
     }
     expect(chunks.join('')).toBe('mock reply')
     expect(finish?.kind).toBe('stop')
+  })
+
+  it('does not attach images to a text-only model', async () => {
+    const opts = {
+      provider: 'localforge',
+      model: 'qwen/qwen3-8b',
+      messages: [{
+        role: 'user',
+        content: [{ type: 'text', text: `Analizza il file "${pngPath}"` }],
+      }] as never,
+    } as unknown as GenerateOptions
+
+    for await (const _c of adapter.stream(opts)) { /* drain */ }
+
+    const body = mock.lastRequestBody as {
+      messages: Array<{ role: string; content: unknown }>
+    }
+    const user = body.messages.find(m => m.role === 'user')
+    expect(typeof user?.content).toBe('string')
+    expect(user?.content).toContain('LocalForge Vision Image Attached')
+  })
+
+  it('attaches images when discovery reports a vision model', async () => {
+    const opts = {
+      provider: 'localforge',
+      model: 'qwen/qwen2.5-vl-7b',
+      messages: [{
+        role: 'user',
+        content: [{ type: 'text', text: `Analizza il file "${pngPath}"` }],
+      }] as never,
+    } as unknown as GenerateOptions
+
+    for await (const _c of adapter.stream(opts)) { /* drain */ }
+
+    const body = mock.lastRequestBody as {
+      messages: Array<{ role: string; content: unknown }>
+    }
+    const user = body.messages.find(m => m.role === 'user')
+    expect(Array.isArray(user?.content)).toBe(true)
+    const parts = user?.content as Array<{ type: string }>
+    expect(parts.some(p => p.type === 'image_url')).toBe(true)
   })
 
   it('throws OVERFLOW when context window is exceeded', async () => {

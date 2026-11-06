@@ -40,6 +40,7 @@ import { applyReasoningBudget } from '../lifecycle/reasoning.ts'
 import { fitsContext } from '../lifecycle/token-estimator.ts'
 import { counterFor, createTokenizer } from '../lifecycle/tokenizer.ts'
 import { applyPreset, type PresetName } from '../config/presets.ts'
+import { modelSupportsVision } from '../config/model-capabilities.ts'
 import type { ResolvedConnection } from '../config/resolve.ts'
 import { serializeRequest } from '../streaming/serialize.ts'
 import { parseSse } from '../streaming/sse.ts'
@@ -100,9 +101,9 @@ export class ChatCompletionsAdapter extends LlmAdapter {
         ...o?.description !== undefined ? { description: o.description } : {},
         ...contextWindow !== undefined ? { context: { contextWindow } } : {},
         ...defaultMaxTokens !== undefined ? { defaultMaxTokens } : {},
-        inputModalities: (o?.vision ?? m.vision) === false
-          ? (['text'] as const)
-          : (['text', 'image'] as const),
+        inputModalities: modelSupportsVision(o, m)
+          ? (['text', 'image'] as const)
+          : (['text'] as const),
       }
     })
   }
@@ -128,8 +129,6 @@ export class ChatCompletionsAdapter extends LlmAdapter {
     const defaultMaxTokens = override?.maxTokens
       ?? conn.defaultMaxTokens
       ?? 4_096
-    const vision = override?.vision ?? discovered?.vision ?? true
-
     return {
       provider,
       id: model,
@@ -137,9 +136,9 @@ export class ChatCompletionsAdapter extends LlmAdapter {
       ...override?.description !== undefined ? { description: override.description } : {},
       context: { contextWindow },
       defaultMaxTokens,
-      inputModalities: vision === false
-        ? (['text'] as const)
-        : (['text', 'image'] as const),
+      inputModalities: modelSupportsVision(override, discovered)
+        ? (['text', 'image'] as const)
+        : (['text'] as const),
     }
   }
 
@@ -185,7 +184,13 @@ export class ChatCompletionsAdapter extends LlmAdapter {
       } catch { /* server may be old or already loaded */ }
 
       // -- 5. build the wire request, applying preset and reasoning budget
-      const visionEnabled = override?.vision !== false
+      // Discovery is best-effort: when the native listing is unavailable,
+      // keep the historical permissive default (images allowed).
+      let discovered: LmStudioLoadedModel | undefined
+      try {
+        discovered = (await this.opts.cache.get()).find(m => m.id === options.model)
+      } catch { /* cache probe failed; permissive default applies */ }
+      const visionEnabled = modelSupportsVision(override, discovered)
       const baseBody = await serializeRequest(
         options,
         this.opts.resolveAttachments?.(),

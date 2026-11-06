@@ -116,9 +116,12 @@ DeepSeek Harness converts uploaded files into read-only disk handles
 
 LocalForge bridges both gaps automatically:
 
-1. **Vision Modality Resolution (`resolveModel`)**: Both `localforge` and
-   `localforge-anthropic` advertise `inputModalities: ['text', 'image']` (unless
-   overridden with `vision: false`), ensuring `dsh` preserves image blocks.
+1. **Vision Modality Resolution (`resolveModel` and request serialization)**:
+   Both `localforge` and `localforge-anthropic` advertise
+   `inputModalities: ['text', 'image']` unless LM Studio reports the model as
+   text-only (`type: 'llm'`) or you set `vision: false`. The same capability
+   gate decides whether image blocks are attached to the wire request, so a
+   text-only model never receives `image_url` / `image` parts.
 2. **Automatic PDF Text & Embedded Image Extraction**: When you attach a `.pdf`
    in `dsh` or reference a `.pdf` path on disk, LocalForge extracts selectable
    page text **and** embedded/scanned page images (for Vision OCR on scanned
